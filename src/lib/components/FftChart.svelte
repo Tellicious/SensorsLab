@@ -109,15 +109,6 @@
   onMount(() => {
     plot = new uPlot(makeOpts(container.clientWidth, container.clientHeight), buildData(), container);
 
-    // Suppress iOS Safari's auto-injected canvas overlay (the floating chip
-    // with a "fullscreen" button in the top-right of each chart). Safari
-    // treats RAF-driven canvases as video-like and offers media controls;
-    // these attributes opt out where Safari respects them.
-    container.querySelectorAll('canvas').forEach((c) => {
-      c.setAttribute('disablepictureinpicture', '');
-      (c as HTMLCanvasElement & { disablePictureInPicture?: boolean }).disablePictureInPicture = true;
-    });
-
     const ro = new ResizeObserver(() => {
       plot?.setSize({ width: container.clientWidth, height: container.clientHeight });
     });
@@ -131,7 +122,28 @@
       last = t;
       if (!plot) return;
       plot.setData(buildData(), false);
-      if (!autoScale) plot.setScale('y', { min: yMin, max: yMax });
+      if (autoScale) {
+        // uPlot.setData(data, false) deliberately preserves whatever Y
+        // range was previously set — so after the first auto-fit (which
+        // happens at init when the spectrum is all zeros), uPlot never
+        // re-fits on its own. Walk the current spectrum, find min/max,
+        // and apply with a small headroom pad. Cheap (O(N) on a few
+        // thousand bins at 20 fps).
+        let min = Infinity, max = -Infinity;
+        for (const spec of spectra) {
+          for (let i = 0; i < spec.length; i++) {
+            const v = spec[i];
+            if (v < min) min = v;
+            if (v > max) max = v;
+          }
+        }
+        if (isFinite(min) && isFinite(max) && max > min) {
+          const pad = (max - min) * 0.05;
+          plot.setScale('y', { min: min - pad, max: max + pad });
+        }
+      } else {
+        plot.setScale('y', { min: yMin, max: yMax });
+      }
     };
     frame = requestAnimationFrame(loop);
 

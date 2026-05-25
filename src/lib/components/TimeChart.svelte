@@ -113,15 +113,6 @@
   onMount(() => {
     plot = new uPlot(makeOpts(container.clientWidth, container.clientHeight), buildData(), container);
 
-    // Suppress iOS Safari's auto-injected canvas overlay (the floating chip
-    // with a "fullscreen" button in the top-right of each chart). Safari
-    // treats RAF-driven canvases as video-like and offers media controls;
-    // these attributes opt out where Safari respects them.
-    container.querySelectorAll('canvas').forEach((c) => {
-      c.setAttribute('disablepictureinpicture', '');
-      (c as HTMLCanvasElement & { disablePictureInPicture?: boolean }).disablePictureInPicture = true;
-    });
-
     const ro = new ResizeObserver(() => {
       if (!plot) return;
       plot.setSize({ width: container.clientWidth, height: container.clientHeight });

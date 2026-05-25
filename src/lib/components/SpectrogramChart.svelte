@@ -168,10 +168,6 @@
 
   onMount(() => {
     ctx = canvas.getContext('2d', { alpha: false });
-    // Suppress iOS Safari's auto-injected canvas overlay (the floating chip
-    // with a "fullscreen" button in the top-right of canvas elements).
-    canvas.setAttribute('disablepictureinpicture', '');
-    (canvas as HTMLCanvasElement & { disablePictureInPicture?: boolean }).disablePictureInPicture = true;
     fitCanvas();
     const ro = new ResizeObserver(() => fitCanvas());
     ro.observe(container);

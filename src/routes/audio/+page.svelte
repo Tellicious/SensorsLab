@@ -34,14 +34,7 @@
   let bins = $state(0);
 
   let freqs = $state(new Float32Array(1));
-  // Raw Float32 buffer filled directly by AnalyserNode.getFloatTimeDomainData.
   let timeBuf = $state(new Float32Array(1));
-  // Stable Float64 mirror, contents copied from `timeBuf` on every frame so
-  // TimeChart's RAF loop sees fresh data via subarray() WITHOUT us reassigning
-  // the reference each tick (which was the previous bug: Float64Array.from
-  // was evaluated once at startup and TimeChart held a frozen snapshot of
-  // all-zero values forever after).
-  let timeBufF64 = $state(new Float64Array(1));
   let timeXs = $state(new Float64Array(1));
   let mag = $state(new Float32Array(1));
   let db = $state(new Float32Array(1));
@@ -70,7 +63,6 @@
     freqs = new Float32Array(bins);
     for (let k = 0; k < bins; k++) freqs[k] = (k * rate) / size;
     timeBuf = new Float32Array(size);
-    timeBufF64 = new Float64Array(size);
     timeXs = new Float64Array(size);
     for (let i = 0; i < size; i++) timeXs[i] = (i / rate);
     mag = new Float32Array(bins);
@@ -110,9 +102,6 @@
   function loop() {
     if (!running || !ctrl) return;
     ctrl.getTimeDomain(timeBuf);
-    // Copy Float32 → stable Float64 so TimeChart sees fresh data without
-    // us swapping the reference (which would lose reactivity to mutations).
-    for (let i = 0; i < timeBuf.length; i++) timeBufF64[i] = timeBuf[i];
     ctrl.getFrequencyMag(mag);
     // mag → dB
     for (let k = 0; k < bins; k++) db[k] = mag[k] > 1e-12 ? 20 * Math.log10(mag[k]) : -200;
@@ -186,6 +175,18 @@
     return 20 * Math.log10(peakTracker.peak / rmsTracker.rms);
   });
 
+  /**
+   * Fresh Float64Array copy of `timeBuf` recomputed every frame the loop
+   * increments `tick`. This is the *only* reactive dependency of the
+   * waveform chart, so the rest of the page (KPIs, spectrum) is unaffected
+   * if this allocation hiccups. Costs ~32 KB/frame of allocation churn
+   * at fftSize=4096, which the GC handles without issue.
+   */
+  const waveformSnapshot = $derived.by(() => {
+    void tick;
+    return Float64Array.from(timeBuf);
+  });
+
   function applyCal(v: number) { return isFinite(v) ? v + calOffset : v; }
 </script>
 
@@ -247,9 +248,9 @@
         {#if running}
           <TimeChart
             xs={timeXs}
-            ys={[timeBufF64]}
+            ys={[waveformSnapshot]}
             seriesDefs={[{ label: 'audio', color: 'var(--series-2)' }]}
-            count={timeBufF64.length}
+            count={waveformSnapshot.length}
             windowSec={$settings.audio.waveformWindowMs / 1000}
             yLabel="amplitude"
           />

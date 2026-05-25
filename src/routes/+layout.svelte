@@ -214,12 +214,7 @@
   .shell {
     display: flex;
     flex-direction: column;
-    /* svh = small viewport height — the smallest possible state of the
-       browser viewport (URL bar + bottom toolbar fully expanded). Using
-       this instead of dvh guarantees the tab bar is never overlapped by
-       Safari's bottom toolbar during chrome transitions. Costs a few
-       vertical pixels when Safari's chrome is collapsed, but ensures
-       consistent layout in every Safari state. */
+    /* svh = smallest viewport state, never overlapped by Safari's chrome. */
     height: 100svh;
     width: 100%;
     background: var(--bg-grouped);
@@ -235,9 +230,6 @@
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
-    /* Extra top padding so the large title isn't visually crowded by
-       Safari's URL bar (which sits in browser chrome above the viewport
-       and isn't accounted for by safe-area-inset-top). */
     padding: 10px 16px 10px;
     min-height: 52px;
     gap: 12px;
@@ -297,10 +289,19 @@
     align-items: stretch;
     background: var(--bg-elev);
     border-top: 0.5px solid var(--separator);
-    padding-bottom: var(--safe-bottom);
-    /* iOS-style translucent tab bar look — backdrop blur on supporting browsers */
+    /* In Safari (the default), iOS still reports a non-zero
+       safe-area-inset-bottom for the home indicator even though Safari's
+       own bottom toolbar already occupies that space. Applying our padding
+       there draws an ugly grey strip below the tab bar in --bg-elev colour.
+       The padding is only useful in PWA standalone mode (Add to Home
+       Screen) where Safari's chrome is gone and the home indicator is
+       directly visible. */
+    padding-bottom: 0;
     backdrop-filter: saturate(180%) blur(20px);
     -webkit-backdrop-filter: saturate(180%) blur(20px);
+  }
+  @media (display-mode: standalone) {
+    .tabbar { padding-bottom: var(--safe-bottom); }
   }
   .tabbar a {
     flex: 1;
